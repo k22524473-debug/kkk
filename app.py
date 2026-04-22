@@ -140,7 +140,7 @@ if uploaded_file:
     df["Spoilage_Level"] = df["Food_Spoilage_Risk"].apply(level)
 
     st.subheader("📊 Data Preview")
-    styled_df = df.style.applymap(lambda _: "font-weight: bold", subset=[temp_col])
+    styled_df = df.style.map(lambda _: "font-weight: bold", subset=[temp_col])
     st.dataframe(styled_df)
 
     # 오늘 데이터 강조
