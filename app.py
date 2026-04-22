@@ -74,7 +74,7 @@ def cockroach_risk(temp, hum):
     else:
         h = 1.0
 
-    return round((t * 0.6 + h * 0.4), 1)
+    return round((t * 0.6 + h * 0.4), 2)
 
 
 def spoilage_risk(temp, hum):
@@ -102,7 +102,7 @@ def spoilage_risk(temp, hum):
     else:
         h = 1.0
 
-    return round((t * 0.7 + h * 0.3), 1)
+    return round((t * 0.7 + h * 0.3), 2)
 
 
 def level(x):
