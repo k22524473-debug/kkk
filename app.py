@@ -1,10 +1,48 @@
 # app.py
-import streamlit as st #
+import streamlit as st
 import pandas as pd
-import numpy as np
 from datetime import datetime
 
-st.set_page_config(page_title="Risk Dashboard@", layout="wide")
+st.set_page_config(page_title="Risk Dashboard", layout="wide")
+
+st.markdown("""
+<div style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+">
+    <div style="
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 20px 48px;
+        display: inline-block;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        border: 2px solid #e94560;
+    ">
+        <a href="https://www.google.com" target="_blank" style="text-decoration: none;">
+        <span style="
+            font-size: 2.6rem;
+            font-weight: 900;
+            letter-spacing: 0.18em;
+            background: linear-gradient(90deg, #e94560, #f5a623, #e94560);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: 'Segoe UI', sans-serif;
+            cursor: pointer;
+        ">김연준</span>
+        </a>
+        <div style="
+            font-size: 0.75rem;
+            color: #a0aec0;
+            letter-spacing: 0.3em;
+            text-align: center;
+            margin-top: 4px;
+            font-family: 'Segoe UI', sans-serif;
+        ">KIM YEON JUN</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.title("🦟 Food Spoilage & Cockroach Risk Dashboard")
 
@@ -80,8 +118,20 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
     # 컬럼 자동 탐지
-    temp_col = [c for c in df.columns if "temp" in c.lower() or "기온" in c][0]
-    hum_col = [c for c in df.columns if "hum" in c.lower() or "습도" in c][0]
+    temp_candidates = [c for c in df.columns if "temp" in c.lower() or "기온" in c]
+    hum_candidates = [c for c in df.columns if "hum" in c.lower() or "습도" in c]
+
+    if not temp_candidates:
+        st.error("온도 컬럼을 찾을 수 없습니다. 컬럼명에 'temp' 또는 '기온'이 포함되어야 합니다.")
+        st.stop()
+    if not hum_candidates:
+        st.error("습도 컬럼을 찾을 수 없습니다. 컬럼명에 'hum' 또는 '습도'가 포함되어야 합니다.")
+        st.stop()
+
+    temp_col = temp_candidates[0]
+    hum_col = hum_candidates[0]
+
+    df = df.dropna(subset=[temp_col, hum_col])
 
     df["Cockroach_Risk"] = df.apply(lambda x: cockroach_risk(x[temp_col], x[hum_col]), axis=1)
     df["Food_Spoilage_Risk"] = df.apply(lambda x: spoilage_risk(x[temp_col], x[hum_col]), axis=1)
@@ -90,13 +140,15 @@ if uploaded_file:
     df["Spoilage_Level"] = df["Food_Spoilage_Risk"].apply(level)
 
     st.subheader("📊 Data Preview")
-    st.dataframe(df)
+    styled_df = df.style.applymap(lambda _: "font-weight: bold", subset=[temp_col])
+    st.dataframe(styled_df)
 
     # 오늘 데이터 강조
     today = datetime.today().date()
 
-    if "date" in [c.lower() for c in df.columns]:
-        date_col = [c for c in df.columns if "date" in c.lower()][0]
+    date_candidates = [c for c in df.columns if "date" in c.lower()]
+    if date_candidates:
+        date_col = date_candidates[0]
         df[date_col] = pd.to_datetime(df[date_col]).dt.date
         today_df = df[df[date_col] == today]
 
