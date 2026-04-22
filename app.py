@@ -158,7 +158,7 @@ CITIES = {
 }
 
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=3600)
 def fetch_weather(lat: float, lon: float) -> pd.DataFrame | None:
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
@@ -207,21 +207,27 @@ tab_live, tab_upload = st.tabs(["🌐 실시간 기상 데이터 (Open-Meteo)", 
 
 # ── Tab 1: 실시간 ─────────────────────────────────────────────────────────
 with tab_live:
-    city = st.selectbox("도시 선택", list(CITIES.keys()))
-    if st.button("데이터 불러오기", type="primary"):
-        lat, lon = CITIES[city]
-        with st.spinner("기상 데이터 수집 중..."):
-            df = fetch_weather(lat, lon)
-        if df is not None:
-            df = apply_risk(df)
-            st.session_state["live_df"] = df
+    col_sel, col_btn = st.columns([3, 1])
+    with col_sel:
+        city = st.selectbox("도시 선택", list(CITIES.keys()))
+    with col_btn:
+        st.write("")
+        if st.button("🔄 새로고침", type="primary", use_container_width=True):
+            st.cache_data.clear()
 
-    if "live_df" in st.session_state:
-        df = st.session_state["live_df"]
+    lat, lon = CITIES[city]
+    with st.spinner("기상 데이터 수집 중..."):
+        df = fetch_weather(lat, lon)
+
+    if df is not None:
+        df = apply_risk(df)
 
         # 현재 시각 기준 최신 행
         now = datetime.now()
-        current = df[df["time"] <= now].iloc[-1] if not df[df["time"] <= now].empty else df.iloc[0]
+        past = df[df["time"] <= now]
+        current = past.iloc[-1] if not past.empty else df.iloc[0]
+
+        st.caption(f"마지막 업데이트: {now.strftime('%Y-%m-%d %H:%M')} | 기준 시각: {current['time'].strftime('%Y-%m-%d %H:00')}")
 
         st.subheader("🚨 현재 위험도")
         col1, col2, col3, col4 = st.columns(4)
@@ -254,6 +260,8 @@ with tab_live:
                 st.markdown("**🍖 음식 부패 위험도**")
                 st.write(f"평균: {df['Food_Spoilage_Risk'].mean():.1f} / 최고: {df['Food_Spoilage_Risk'].max()}")
                 st.write(df["Spoilage_Level"].value_counts().rename("시간(h)"))
+    else:
+        st.error("기상 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.")
 
 # ── Tab 2: 엑셀 업로드 ───────────────────────────────────────────────────
 with tab_upload:
