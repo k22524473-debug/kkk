@@ -74,7 +74,7 @@ def cockroach_risk(temp, hum):
     else:
         h = 1.0
 
-    return round((t * 0.6 + h * 0.4), 2)
+    return round((t * 0.6 + h * 0.4), 1)
 
 
 def spoilage_risk(temp, hum):
@@ -102,7 +102,7 @@ def spoilage_risk(temp, hum):
     else:
         h = 1.0
 
-    return round((t * 0.7 + h * 0.3), 2)
+    return round((t * 0.7 + h * 0.3), 1)
 
 
 def level(x):
@@ -165,6 +165,3 @@ if uploaded_file:
 
 else:
     st.info("엑셀 파일을 업로드해주세요")
-
-
-
