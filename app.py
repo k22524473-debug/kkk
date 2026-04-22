@@ -1,10 +1,10 @@
 # app.py
-import streamlit as st
+import streamlit as st #
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
-st.set_page_config(page_title="Risk Dashboard", layout="wide")
+st.set_page_config(page_title="Risk Dashboard@", layout="wide")
 
 st.title("🦟 Food Spoilage & Cockroach Risk Dashboard")
 
