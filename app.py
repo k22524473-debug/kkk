@@ -237,7 +237,11 @@ with tab_live:
         st.subheader("📊 시간별 데이터")
         display_cols = ["time", "Temperature (°C)", "Humidity (%)", "Precipitation (mm)",
                         "Cockroach_Risk", "Cockroach_Level", "Food_Spoilage_Risk", "Spoilage_Level"]
-        st.dataframe(df[display_cols].style.map(lambda _: "font-weight: bold", subset=["Cockroach_Risk", "Food_Spoilage_Risk"]))
+        st.dataframe(
+            df[display_cols].style
+            .format({"Temperature (°C)": "{:.1f}", "Humidity (%)": "{:.1f}", "Precipitation (mm)": "{:.1f}"})
+            .map(lambda _: "font-weight: bold", subset=["Cockroach_Risk", "Food_Spoilage_Risk"])
+        )
 
         # 통계 요약
         with st.expander("📋 48시간 통계 요약"):
