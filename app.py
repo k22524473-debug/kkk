@@ -30,7 +30,7 @@ st.markdown("""
         box-shadow: 0 4px 24px rgba(0,0,0,0.4);
         border: 2px solid #e94560;
     ">
-        <a href="https://www.google.com" target="_blank" style="text-decoration: none;">
+        <a href="https://www.weather.go.kr/w/weather/forecast/short-term.do" target="_blank" style="text-decoration: none;">
         <span style="
             font-size: 2.6rem;
             font-weight: 900;
@@ -40,7 +40,7 @@ st.markdown("""
             -webkit-text-fill-color: transparent;
             font-family: 'Segoe UI', sans-serif;
             cursor: pointer;
-        ">김연준</span>
+        ">기상청</span>
         </a>
         <div style="
             font-size: 0.75rem;
@@ -49,7 +49,7 @@ st.markdown("""
             text-align: center;
             margin-top: 4px;
             font-family: 'Segoe UI', sans-serif;
-        ">KIM YEON JUN</div>
+        ">구리시 날씨 예보</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
