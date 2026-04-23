@@ -3,6 +3,8 @@ import streamlit as st
 import pandas as pd
 import requests
 import sqlite3
+import os
+import tempfile
 from datetime import datetime, timedelta
 from typing import Tuple
 
@@ -172,7 +174,9 @@ class RiskAnalyzer:
 # ── 날씨 이력 저장 (SQLite) ────────────────────────────────────────────────
 
 class WeatherDataManager:
-    def __init__(self, db_path: str = "guri_weather.db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            db_path = os.path.join(tempfile.gettempdir(), "guri_weather.db")
         self.db_path = db_path
         conn = sqlite3.connect(db_path)
         conn.execute('''
