@@ -315,6 +315,107 @@ def apply_risk(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ── 자동 갱신 fragments ────────────────────────────────────────────────────
+
+@st.fragment(run_every=timedelta(hours=1))
+def kma_live_section(api_key: str, kma_city: str):
+    if st.button("🔄 지금 새로고침", type="primary", key="kma_refresh"):
+        st.rerun(scope="fragment")
+
+    nx, ny = KMA_CITY_GRIDS[kma_city]
+    analyzer = RiskAnalyzer()
+    db = WeatherDataManager()
+
+    with st.spinner("기상청 데이터 조회 중..."):
+        weather = KMAWeatherAPI(api_key, nx, ny).get_current_weather()
+
+    if not weather:
+        return
+
+    risks = {
+        'cockroach_risk': analyzer.calculate_cockroach_risk(weather['temperature'], weather['humidity']),
+        'food_spoilage_risk': analyzer.calculate_food_spoilage_risk(weather['temperature'], weather['humidity']),
+    }
+    db.save(kma_city, weather, risks)
+
+    c_level, c_emoji = analyzer.risk_level(risks['cockroach_risk'])
+    f_level, f_emoji = analyzer.risk_level(risks['food_spoilage_risk'])
+
+    st.caption(f"기준 시각: {weather['update_time']} | 매 1시간 자동 갱신")
+    st.subheader("🚨 현재 위험도")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("🌡 기온", f"{weather['temperature']:.1f}°C")
+    col2.metric("💧 습도", f"{weather['humidity']:.0f}%")
+    col3.metric("🌧 강수형태", weather.get('precipitation_type', '없음'))
+    col4.metric("🪳 바퀴벌레 위험도", f"{risks['cockroach_risk']:.0f}/100", f"{c_emoji} {c_level}")
+    col5.metric("🍖 음식 부패 위험도", f"{risks['food_spoilage_risk']:.0f}/100", f"{f_emoji} {f_level}")
+
+    history = db.get_recent(kma_city, 24)
+    if not history.empty:
+        st.subheader("📈 24시간 위험도 추이")
+        history['timestamp'] = pd.to_datetime(history['timestamp'])
+        st.line_chart(history.set_index('timestamp')[['cockroach_risk', 'food_spoilage_risk']])
+
+        with st.expander("📋 저장된 이력 데이터"):
+            st.dataframe(
+                history[['timestamp', 'temperature', 'humidity',
+                          'precipitation_type', 'wind_speed',
+                          'cockroach_risk', 'food_spoilage_risk']]
+            )
+
+
+@st.fragment(run_every=timedelta(hours=1))
+def open_meteo_section(city: str):
+    if st.button("🔄 지금 새로고침", type="primary", key="meteo_refresh"):
+        st.cache_data.clear()
+        st.rerun(scope="fragment")
+
+    lat, lon = OPEN_METEO_CITIES[city]
+    with st.spinner("기상 데이터 수집 중..."):
+        df = fetch_open_meteo(lat, lon)
+
+    if df is None:
+        st.error("기상 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.")
+        return
+
+    df = apply_risk(df)
+    now = datetime.now()
+    past = df[df["time"] <= now]
+    current = past.iloc[-1] if not past.empty else df.iloc[0]
+
+    st.caption(f"마지막 업데이트: {now.strftime('%Y-%m-%d %H:%M')} | 기준 시각: {current['time'].strftime('%Y-%m-%d %H:00')} | 매 1시간 자동 갱신")
+
+    st.subheader("🚨 현재 위험도")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("기온", f"{current['Temperature (°C)']:.1f}°C")
+    col2.metric("습도", f"{current['Humidity (%)']:.0f}%")
+    col3.metric("🪳 바퀴벌레 위험도", f"{current['Cockroach_Risk']}/100", current["Cockroach_Level"])
+    col4.metric("🍖 음식 부패 위험도", f"{current['Food_Spoilage_Risk']}/100", current["Spoilage_Level"])
+
+    st.subheader("📈 48시간 위험도 추이")
+    st.line_chart(df.set_index("time")[["Cockroach_Risk", "Food_Spoilage_Risk"]])
+
+    st.subheader("📊 시간별 데이터")
+    display_cols = ["time", "Temperature (°C)", "Humidity (%)", "Precipitation (mm)",
+                    "Cockroach_Risk", "Cockroach_Level", "Food_Spoilage_Risk", "Spoilage_Level"]
+    st.dataframe(
+        df[display_cols].style
+        .format({"Temperature (°C)": "{:.1f}", "Humidity (%)": "{:.1f}", "Precipitation (mm)": "{:.1f}"})
+        .map(lambda _: "font-weight: bold", subset=["Cockroach_Risk", "Food_Spoilage_Risk"])
+    )
+
+    with st.expander("📋 48시간 통계 요약"):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.markdown("**🪳 바퀴벌레 활동 위험도**")
+            st.write(f"평균: {df['Cockroach_Risk'].mean():.1f} / 최고: {df['Cockroach_Risk'].max()}")
+            st.write(df["Cockroach_Level"].value_counts().rename("시간(h)"))
+        with col_b:
+            st.markdown("**🍖 음식 부패 위험도**")
+            st.write(f"평균: {df['Food_Spoilage_Risk'].mean():.1f} / 최고: {df['Food_Spoilage_Risk'].max()}")
+            st.write(df["Spoilage_Level"].value_counts().rename("시간(h)"))
+
+
 # ── UI ────────────────────────────────────────────────────────────────────
 
 tab_kma, tab_live, tab_upload = st.tabs([
@@ -323,7 +424,7 @@ tab_kma, tab_live, tab_upload = st.tabs([
 
 # ── Tab 1: 기상청 KMA API ──────────────────────────────────────────────────
 with tab_kma:
-    col_key, col_city, col_btn = st.columns([4, 2, 1])
+    col_key, col_city = st.columns([4, 2])
     with col_key:
         api_key = st.text_input(
             "기상청 API 서비스 키",
@@ -332,107 +433,16 @@ with tab_kma:
         )
     with col_city:
         kma_city = st.selectbox("도시", list(KMA_CITY_GRIDS.keys()), key="kma_city")
-    with col_btn:
-        st.write("")
-        st.button("🔄 조회", type="primary", use_container_width=True, key="kma_refresh")
 
     if not api_key:
         st.info("기상청 공공데이터 포털(data.go.kr)에서 발급받은 API 서비스 키를 입력하세요.")
     else:
-        nx, ny = KMA_CITY_GRIDS[kma_city]
-        weather_api = KMAWeatherAPI(api_key, nx, ny)
-        analyzer = RiskAnalyzer()
-        db = WeatherDataManager()
-
-        with st.spinner("기상청 데이터 조회 중..."):
-            weather = weather_api.get_current_weather()
-
-        if weather:
-            risks = {
-                'cockroach_risk': analyzer.calculate_cockroach_risk(weather['temperature'], weather['humidity']),
-                'food_spoilage_risk': analyzer.calculate_food_spoilage_risk(weather['temperature'], weather['humidity']),
-            }
-            db.save(kma_city, weather, risks)
-
-            c_level, c_emoji = analyzer.risk_level(risks['cockroach_risk'])
-            f_level, f_emoji = analyzer.risk_level(risks['food_spoilage_risk'])
-
-            st.caption(f"기준 시각: {weather['update_time']}")
-            st.subheader("🚨 현재 위험도")
-            col1, col2, col3, col4, col5 = st.columns(5)
-            col1.metric("🌡 기온", f"{weather['temperature']:.1f}°C")
-            col2.metric("💧 습도", f"{weather['humidity']:.0f}%")
-            col3.metric("🌧 강수형태", weather.get('precipitation_type', '없음'))
-            col4.metric("🪳 바퀴벌레 위험도", f"{risks['cockroach_risk']:.0f}/100", f"{c_emoji} {c_level}")
-            col5.metric("🍖 음식 부패 위험도", f"{risks['food_spoilage_risk']:.0f}/100", f"{f_emoji} {f_level}")
-
-            history = db.get_recent(kma_city, 24)
-            if not history.empty:
-                st.subheader("📈 24시간 위험도 추이")
-                history['timestamp'] = pd.to_datetime(history['timestamp'])
-                st.line_chart(history.set_index('timestamp')[['cockroach_risk', 'food_spoilage_risk']])
-
-                with st.expander("📋 저장된 이력 데이터"):
-                    st.dataframe(
-                        history[['timestamp', 'temperature', 'humidity',
-                                  'precipitation_type', 'wind_speed',
-                                  'cockroach_risk', 'food_spoilage_risk']]
-                    )
+        kma_live_section(api_key, kma_city)
 
 # ── Tab 2: Open-Meteo ─────────────────────────────────────────────────────
 with tab_live:
-    col_sel, col_btn2 = st.columns([3, 1])
-    with col_sel:
-        city = st.selectbox("도시 선택", list(OPEN_METEO_CITIES.keys()))
-    with col_btn2:
-        st.write("")
-        if st.button("🔄 새로고침", type="primary", use_container_width=True):
-            st.cache_data.clear()
-
-    lat, lon = OPEN_METEO_CITIES[city]
-    with st.spinner("기상 데이터 수집 중..."):
-        df = fetch_open_meteo(lat, lon)
-
-    if df is not None:
-        df = apply_risk(df)
-
-        now = datetime.now()
-        past = df[df["time"] <= now]
-        current = past.iloc[-1] if not past.empty else df.iloc[0]
-
-        st.caption(f"마지막 업데이트: {now.strftime('%Y-%m-%d %H:%M')} | 기준 시각: {current['time'].strftime('%Y-%m-%d %H:00')}")
-
-        st.subheader("🚨 현재 위험도")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("기온", f"{current['Temperature (°C)']:.1f}°C")
-        col2.metric("습도", f"{current['Humidity (%)']:.0f}%")
-        col3.metric("🪳 바퀴벌레 위험도", f"{current['Cockroach_Risk']}/100", current["Cockroach_Level"])
-        col4.metric("🍖 음식 부패 위험도", f"{current['Food_Spoilage_Risk']}/100", current["Spoilage_Level"])
-
-        st.subheader("📈 48시간 위험도 추이")
-        st.line_chart(df.set_index("time")[["Cockroach_Risk", "Food_Spoilage_Risk"]])
-
-        st.subheader("📊 시간별 데이터")
-        display_cols = ["time", "Temperature (°C)", "Humidity (%)", "Precipitation (mm)",
-                        "Cockroach_Risk", "Cockroach_Level", "Food_Spoilage_Risk", "Spoilage_Level"]
-        st.dataframe(
-            df[display_cols].style
-            .format({"Temperature (°C)": "{:.1f}", "Humidity (%)": "{:.1f}", "Precipitation (mm)": "{:.1f}"})
-            .map(lambda _: "font-weight: bold", subset=["Cockroach_Risk", "Food_Spoilage_Risk"])
-        )
-
-        with st.expander("📋 48시간 통계 요약"):
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown("**🪳 바퀴벌레 활동 위험도**")
-                st.write(f"평균: {df['Cockroach_Risk'].mean():.1f} / 최고: {df['Cockroach_Risk'].max()}")
-                st.write(df["Cockroach_Level"].value_counts().rename("시간(h)"))
-            with col_b:
-                st.markdown("**🍖 음식 부패 위험도**")
-                st.write(f"평균: {df['Food_Spoilage_Risk'].mean():.1f} / 최고: {df['Food_Spoilage_Risk'].max()}")
-                st.write(df["Spoilage_Level"].value_counts().rename("시간(h)"))
-    else:
-        st.error("기상 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.")
+    city = st.selectbox("도시 선택", list(OPEN_METEO_CITIES.keys()))
+    open_meteo_section(city)
 
 # ── Tab 3: 엑셀 업로드 ────────────────────────────────────────────────────
 with tab_upload:
