@@ -255,29 +255,45 @@ def render_weather_stats(weather: dict) -> str:
 
 def render_risk_cards(c_score: float, c_level: str, c_emoji: str,
                       f_score: float, f_level: str, f_emoji: str) -> str:
-    def card(title, score, level, emoji):
+    def row(title, score, level, emoji):
         color = _risk_color(score)
-        bg    = _risk_bg(score)
-        return f"""
-        <div style="background:{bg}; border-radius:14px; padding:20px 22px;
-                    border-left:5px solid {color}; flex:1;">
-            <div style="font-size:0.78rem;text-transform:uppercase;
-                        letter-spacing:.08em;color:#a0aec0;margin-bottom:10px;">{title}</div>
-            <div style="font-size:2.6rem;font-weight:800;line-height:1;color:{color};">
-                {score:.0f}<span style="font-size:1rem;font-weight:400;color:#718096;">/100</span>
-            </div>
-            <div style="background:#2d3748;border-radius:999px;height:6px;
-                        margin:12px 0 8px;overflow:hidden;">
-                <div style="width:{score}%;height:100%;border-radius:999px;
-                             background:{color};"></div>
-            </div>
-            <div style="font-size:0.85rem;font-weight:600;color:{color};">{emoji} {level}</div>
-        </div>"""
-    return f"""
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;">
-        {card("🪳 바퀴벌레 출현 위험도", c_score, c_level, c_emoji)}
-        {card("🍖 음식 부패 위험도",     f_score, f_level, f_emoji)}
-    </div>"""
+        bar = (
+            f'<div style="background:#2d3748;border-radius:999px;height:8px;'
+            f'min-width:120px;overflow:hidden;">'
+            f'<div style="width:{score:.0f}%;height:100%;border-radius:999px;'
+            f'background:{color};"></div></div>'
+        )
+        return (
+            f'<tr>'
+            f'<td style="padding:12px 16px;color:#e2e8f0;font-size:0.9rem;white-space:nowrap;">{title}</td>'
+            f'<td style="padding:12px 16px;text-align:center;font-size:1.2rem;font-weight:700;color:{color};">{score:.0f}</td>'
+            f'<td style="padding:12px 16px;">{bar}</td>'
+            f'<td style="padding:12px 16px;font-size:0.85rem;font-weight:600;color:{color};white-space:nowrap;">{emoji} {level}</td>'
+            f'</tr>'
+        )
+    header = (
+        '<tr style="border-bottom:1px solid #2d3748;">'
+        '<th style="padding:10px 16px;text-align:left;color:#718096;font-size:0.75rem;'
+        'text-transform:uppercase;letter-spacing:.08em;font-weight:600;">항목</th>'
+        '<th style="padding:10px 16px;text-align:center;color:#718096;font-size:0.75rem;'
+        'text-transform:uppercase;letter-spacing:.08em;font-weight:600;">점수</th>'
+        '<th style="padding:10px 16px;color:#718096;font-size:0.75rem;'
+        'text-transform:uppercase;letter-spacing:.08em;font-weight:600;">위험도</th>'
+        '<th style="padding:10px 16px;color:#718096;font-size:0.75rem;'
+        'text-transform:uppercase;letter-spacing:.08em;font-weight:600;">수준</th>'
+        '</tr>'
+    )
+    rows = (
+        row("🪳 바퀴벌레 출현 위험도", c_score, c_level, c_emoji) +
+        row("🍖 음식 부패 위험도",     f_score, f_level, f_emoji)
+    )
+    return (
+        '<table style="width:100%;border-collapse:collapse;background:#1a1f2e;'
+        'border-radius:12px;overflow:hidden;border:1px solid #2d3748;margin-bottom:20px;">'
+        f'<thead>{header}</thead>'
+        f'<tbody>{rows}</tbody>'
+        '</table>'
+    )
 
 
 # ── 기상청 KMA API ─────────────────────────────────────────────────────────
