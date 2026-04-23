@@ -5,7 +5,12 @@ import requests
 import sqlite3
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+KST = timezone(timedelta(hours=9))
+
+def now_kst() -> datetime:
+    return datetime.now(KST).replace(tzinfo=None)
 from typing import Tuple
 
 st.set_page_config(page_title="Risk Dashboard", layout="wide")
@@ -78,15 +83,14 @@ class KMAWeatherAPI:
         self.ny = ny
 
     def get_current_weather(self):
-        now = datetime.now()
-        base_time = self._get_base_time(now)
+        base_dt = self._base_dt()
         params = {
             'serviceKey': self.service_key,
             'pageNo': '1',
             'numOfRows': '1000',
             'dataType': 'JSON',
-            'base_date': now.strftime('%Y%m%d'),
-            'base_time': base_time,
+            'base_date': base_dt.strftime('%Y%m%d'),
+            'base_time': base_dt.strftime('%H00'),
             'nx': self.nx,
             'ny': self.ny,
         }
@@ -97,10 +101,13 @@ class KMAWeatherAPI:
             st.error(f"API 호출 오류: {e}")
             return None
 
-    def _get_base_time(self, dt: datetime) -> str:
+    def _base_dt(self) -> datetime:
+        # 초단기실황은 매시 40분 발표 — 40분 이전이면 이전 시각 기준
+        # base_date와 base_time을 같은 datetime에서 추출해 자정 경계 오류 방지
+        dt = now_kst()
         if dt.minute < 40:
-            dt = dt - timedelta(hours=1)
-        return dt.strftime('%H00')
+            dt -= timedelta(hours=1)
+        return dt.replace(minute=0, second=0, microsecond=0)
 
     def _parse(self, data: dict):
         header = data['response']['header']
@@ -126,7 +133,7 @@ class KMAWeatherAPI:
                     result['precipitation'] = 0.0
         result.setdefault('precipitation', 0.0)
         result.setdefault('wind_speed', 0.0)
-        result['update_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        result['update_time'] = now_kst().strftime('%Y-%m-%d %H:%M:%S')
         return result
 
 
@@ -383,7 +390,7 @@ def open_meteo_section(city: str):
         return
 
     df = apply_risk(df)
-    now = datetime.now()
+    now = now_kst()
     past = df[df["time"] <= now]
     current = past.iloc[-1] if not past.empty else df.iloc[0]
 
@@ -488,7 +495,7 @@ with tab_upload:
         st.subheader("📊 Data Preview")
         st.dataframe(df.style.map(lambda _: "font-weight: bold", subset=[temp_col]))
 
-        today = datetime.today().date()
+        today = now_kst().date()
         date_candidates = [c for c in df.columns if "date" in c.lower()]
         if date_candidates:
             date_col = date_candidates[0]
