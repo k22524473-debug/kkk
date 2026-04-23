@@ -222,18 +222,23 @@ def _risk_bg(score: float) -> str:
 
 def render_weather_stats(weather: dict) -> str:
     stats = [
-        ("🌡", "기온",   f"{weather['temperature']:.1f}°C"),
-        ("💧", "습도",   f"{weather['humidity']:.0f}%"),
+        ("🌡", "기온",    f"{weather['temperature']:.1f}°C"),
+        ("💧", "습도",    f"{weather['humidity']:.0f}%"),
         ("🌧", "강수형태", weather.get('precipitation_type', '없음')),
-        ("💨", "풍속",   f"{weather.get('wind_speed', 0):.1f} m/s"),
+        ("💨", "풍속",    f"{weather.get('wind_speed', 0):.1f} m/s"),
     ]
+    box_style = (
+        "background:#1a1f2e; border-radius:12px; padding:18px 12px; "
+        "text-align:center; border:1px solid #2d3748; flex:1;"
+    )
     boxes = "".join(f"""
-        <div class="stat-box">
-            <div class="stat-icon">{icon}</div>
-            <div class="stat-label">{label}</div>
-            <div class="stat-value">{value}</div>
+        <div style="{box_style}">
+            <div style="font-size:1.6rem;">{icon}</div>
+            <div style="color:#718096;font-size:0.72rem;letter-spacing:.06em;
+                        text-transform:uppercase;margin:6px 0 4px;">{label}</div>
+            <div style="color:#e2e8f0;font-size:1.35rem;font-weight:700;">{value}</div>
         </div>""" for icon, label, value in stats)
-    return f'<div class="stat-grid">{boxes}</div>'
+    return f'<div style="display:flex;gap:12px;margin-bottom:20px;">{boxes}</div>'
 
 def render_risk_cards(c_score: float, c_level: str, c_emoji: str,
                       f_score: float, f_level: str, f_emoji: str) -> str:
@@ -241,19 +246,22 @@ def render_risk_cards(c_score: float, c_level: str, c_emoji: str,
         color = _risk_color(score)
         bg    = _risk_bg(score)
         return f"""
-        <div class="risk-box" style="background:{bg}; border-color:{color};">
-            <div class="risk-title">{title}</div>
-            <div class="risk-score" style="color:{color};">
-                {score:.0f}<span>/100</span>
+        <div style="background:{bg}; border-radius:14px; padding:20px 22px;
+                    border-left:5px solid {color}; flex:1;">
+            <div style="font-size:0.78rem;text-transform:uppercase;
+                        letter-spacing:.08em;color:#a0aec0;margin-bottom:10px;">{title}</div>
+            <div style="font-size:2.6rem;font-weight:800;line-height:1;color:{color};">
+                {score:.0f}<span style="font-size:1rem;font-weight:400;color:#718096;">/100</span>
             </div>
-            <div class="risk-bar-bg">
-                <div class="risk-bar-fill"
-                     style="width:{score}%; background:{color};"></div>
+            <div style="background:#2d3748;border-radius:999px;height:6px;
+                        margin:12px 0 8px;overflow:hidden;">
+                <div style="width:{score}%;height:100%;border-radius:999px;
+                             background:{color};"></div>
             </div>
-            <div class="risk-badge" style="color:{color};">{emoji} {level}</div>
+            <div style="font-size:0.85rem;font-weight:600;color:{color};">{emoji} {level}</div>
         </div>"""
     return f"""
-    <div class="risk-grid">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;">
         {card("🪳 바퀴벌레 출현 위험도", c_score, c_level, c_emoji)}
         {card("🍖 음식 부패 위험도",     f_score, f_level, f_emoji)}
     </div>"""
@@ -544,14 +552,14 @@ def kma_live_section(api_key: str, kma_city: str):
 
     with col_info:
         st.markdown(
-            f"<div class='timestamp'>📡 기준 시각: {weather['update_time']} &nbsp;·&nbsp; 매 1시간 자동 갱신</div>",
+            f"<div style="color:#4a5568;font-size:0.78rem;margin-bottom:16px;">📡 기준 시각: {weather['update_time']} &nbsp;·&nbsp; 매 1시간 자동 갱신</div>",
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div class='section-title'>현재 기상 상태</div>", unsafe_allow_html=True)
+    st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">현재 기상 상태</div>", unsafe_allow_html=True)
     st.markdown(render_weather_stats(weather), unsafe_allow_html=True)
 
-    st.markdown("<div class='section-title'>위험도 분석</div>", unsafe_allow_html=True)
+    st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">위험도 분석</div>", unsafe_allow_html=True)
     st.markdown(
         render_risk_cards(
             risks['cockroach_risk'],    c_level, c_emoji,
@@ -562,7 +570,7 @@ def kma_live_section(api_key: str, kma_city: str):
 
     history = db.get_recent(kma_city, 24)
     if not history.empty:
-        st.markdown("<div class='section-title'>24시간 위험도 추이</div>", unsafe_allow_html=True)
+        st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">24시간 위험도 추이</div>", unsafe_allow_html=True)
         history['timestamp'] = pd.to_datetime(history['timestamp'])
         st.line_chart(
             history.set_index('timestamp')[['cockroach_risk', 'food_spoilage_risk']],
@@ -600,13 +608,13 @@ def open_meteo_section(city: str):
 
     with col_info:
         st.markdown(
-            f"<div class='timestamp'>📡 기준 시각: {current['time'].strftime('%Y-%m-%d %H:00')} "
+            f"<div style="color:#4a5568;font-size:0.78rem;margin-bottom:16px;">📡 기준 시각: {current['time'].strftime('%Y-%m-%d %H:00')} "
             f"&nbsp;·&nbsp; 마지막 업데이트: {now.strftime('%H:%M')} &nbsp;·&nbsp; 매 1시간 자동 갱신</div>",
             unsafe_allow_html=True,
         )
 
     # 현재 기상 상태 (Open-Meteo)
-    st.markdown("<div class='section-title'>현재 기상 상태</div>", unsafe_allow_html=True)
+    st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">현재 기상 상태</div>", unsafe_allow_html=True)
     weather_om = {
         'temperature': current["Temperature (°C)"],
         'humidity':    current["Humidity (%)"],
@@ -622,7 +630,7 @@ def open_meteo_section(city: str):
     level_map = {"Low":"낮음","Moderate":"보통","Caution":"주의","High":"높음","Very High":"매우 높음"}
     emoji_map = {"Low":"🔵","Moderate":"🟢","Caution":"🟡","High":"🟠","Very High":"🔴"}
 
-    st.markdown("<div class='section-title'>위험도 분석</div>", unsafe_allow_html=True)
+    st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">위험도 분석</div>", unsafe_allow_html=True)
     st.markdown(
         render_risk_cards(
             cs, level_map.get(cl, cl), emoji_map.get(cl, ""),
@@ -631,7 +639,7 @@ def open_meteo_section(city: str):
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div class='section-title'>48시간 위험도 추이</div>", unsafe_allow_html=True)
+    st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">48시간 위험도 추이</div>", unsafe_allow_html=True)
     st.line_chart(
         df.set_index("time")[["Cockroach_Risk", "Food_Spoilage_Risk"]],
         color=["#fc8181", "#f6ad55"],
@@ -751,7 +759,7 @@ with tab_upload:
                 fl = str(row['Spoilage_Level'])
                 level_map = {"Low":"낮음","Moderate":"보통","Caution":"주의","High":"높음","Very High":"매우 높음"}
                 emoji_map = {"Low":"🔵","Moderate":"🟢","Caution":"🟡","High":"🟠","Very High":"🔴"}
-                st.markdown("<div class='section-title'>오늘 위험도</div>", unsafe_allow_html=True)
+                st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">오늘 위험도</div>", unsafe_allow_html=True)
                 st.markdown(
                     render_risk_cards(
                         cs, level_map.get(cl, cl), emoji_map.get(cl, ""),
@@ -760,7 +768,7 @@ with tab_upload:
                     unsafe_allow_html=True,
                 )
 
-        st.markdown("<div class='section-title'>위험도 추이</div>", unsafe_allow_html=True)
+        st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">위험도 추이</div>", unsafe_allow_html=True)
         st.line_chart(
             df[["Cockroach_Risk","Food_Spoilage_Risk"]],
             color=["#fc8181","#f6ad55"],
