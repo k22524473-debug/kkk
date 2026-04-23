@@ -570,12 +570,21 @@ def kma_live_section(api_key: str, kma_city: str):
 
     history = db.get_recent(kma_city, 24)
     if not history.empty:
-        st.markdown("<div style="color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;">24시간 위험도 추이</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:#a0aec0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid #2d3748;'>24시간 추이</div>", unsafe_allow_html=True)
         history['timestamp'] = pd.to_datetime(history['timestamp'])
-        st.line_chart(
-            history.set_index('timestamp')[['cockroach_risk', 'food_spoilage_risk']],
-            color=["#fc8181", "#f6ad55"],
-        )
+        h = history.set_index('timestamp')
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.caption("🌡 기온 (°C)")
+            st.line_chart(h[['temperature']], color=["#63b3ed"])
+            st.caption("🪳 바퀴벌레 위험도")
+            st.line_chart(h[['cockroach_risk']], color=["#fc8181"])
+        with col_b:
+            st.caption("💧 습도 (%)")
+            st.line_chart(h[['humidity']], color=["#68d391"])
+            st.caption("🍖 음식 부패 위험도")
+            st.line_chart(h[['food_spoilage_risk']], color=["#f6ad55"])
         with st.expander("📋 이력 데이터 보기"):
             st.dataframe(
                 history[['timestamp','temperature','humidity',
